@@ -1,0 +1,110 @@
+
+##Read CSV
+bank_data <- read.csv("C:\\Users\\rburs\\Documents\\Bank Churn - Raw File.csv",
+                       header = T)
+
+##Reduce ID Columms
+bank_data <- bank_data[4:14]
+
+##Check Data Types
+str(bank_data)
+
+##Adjust Data Types
+bank_data$Gender <- as.factor(bank_data$Gender)
+
+levels(bank_data$Gender)
+
+bank_data$Geography <- as.factor(bank_data$Geography)
+
+levels(bank_data$Geography)
+
+str(bank_data)
+
+##Check for Missing Data
+which(is.na(bank_data[1]))
+which(is.na(bank_data[2]))
+which(is.na(bank_data[3]))
+which(is.na(bank_data[4]))
+which(is.na(bank_data[5]))
+which(is.na(bank_data[6]))
+which(is.na(bank_data[7]))
+which(is.na(bank_data[8]))
+which(is.na(bank_data[9]))
+which(is.na(bank_data[10]))
+which(is.na(bank_data[11]))
+
+##Summary Measures
+summary(bank_data)
+
+##Distribution of Credit Score
+hist(bank_data$CreditScore, 
+     xlab = "Credit Score", 
+     main = "Bank Customer Distributions")
+
+##Boxplot of Credit Score
+boxplot(bank_data$CreditScore, 
+     xlab = "Credit Score", 
+     main = "Bank Customer Boxplots")
+
+##Distribution of Age
+hist(bank_data$Age, 
+     xlab = "Age", 
+     main = "Bank Customer Distributions")
+
+##Boxplot of Age
+boxplot(bank_data$Age, 
+        xlab = "Age", 
+        main = "Bank Customer Boxplots")
+
+##Distribution of Tenure
+hist(bank_data$Tenure, 
+     xlab = "Tenure", 
+     main = "Bank Customer Distributions")
+
+##Boxplot of Tenure
+boxplot(bank_data$Tenure, 
+        xlab = "Tenure", 
+        main = "Bank Customer Boxplots")
+
+##Distribution of Balance
+hist(bank_data$Balance, 
+     xlab = "Balance", 
+     main = "Bank Customer Distributions")
+
+##Boxplot of Balance
+boxplot(bank_data$Balance, 
+        xlab = "Balance", 
+        main = "Bank Customer Boxplots")
+
+##Distribution of Number of Products
+hist(bank_data$NumOfProducts, 
+     xlab = "Number of Products", 
+     main = "Bank Customer Distributions")
+
+##Boxplot of Number of Products
+boxplot(bank_data$NumOfProducts, 
+        xlab = "Number of Products", 
+        main = "Bank Customer Boxplots")
+
+##Distribution of Estimated Salary
+hist(bank_data$EstimatedSalary, 
+     xlab = "Estimated Salary", 
+     main = "Bank Customer Distributions")
+
+##Boxplot of Estimated Salary
+boxplot(bank_data$EstimatedSalary, 
+        xlab = "Estimated Salary", 
+        main = "Bank Customer Boxplots")
+
+##Distribution of Geography
+barplot(bank_data$Geography, 
+     xlab = "Geography", 
+     main = "Bank Customer Distributions")
+
+##count Frequency of other data types
+library("plyr")
+count(bank_data, 'Geography')
+count(bank_data, 'Gender')
+count(bank_data, 'HasCrCard')
+count(bank_data, 'IsActiveMember')
+count(bank_data, 'Exited')
