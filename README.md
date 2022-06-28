@@ -1,6 +1,13 @@
 # CIND820-Big-Data-Analytics-Bank-Churn-Modeling
 A repository for the CIND820 Big Data Capstone course. This will focus on bank customer churn prediction using ML methods in R.
 
-The Literature Review Work file represents R code used to complete very preliminary exploratory data analysis.
-
 The bank_churn_dataset.csv file represents the raw dataset used for this assignment can also be found here https://www.kaggle.com/datasets/mathchi/churn-for-bank-customers?datasetId=797699&sortBy=dateCreated
+
+The Literature Review Work file represents R code used to complete a very preliminary exploratory data analysis.
+
+The CMTH 820 Initial Code Ryan Bursey RMD file represents the code written for the initial code stage of this assignment. The similarly named HTML file represents the knitted code, this file does not work in github and is therefore uploaded to the course shell (D2L).
+
+In examining, analyzing, and utilizing the “Churn for Bank Customers”1 dataset, this research project will evaluate customer churn in the European banking system to build a predictive model that can help optimize custom churn in the Canadian banking system. This predictive model will be built with the following three key questions/problems in mind. First, why are certain banking customers choosing to halt their banking relationship? Secondly, what factors/attributes are most likely to influence a customer to continue to stay with the bank? Finally, of the current customer base, whom are candidates to possibly leave the bank and, in turn, should be targeted with ancillary promotion/retention efforts.
+
+The data being used to build this model is, as mentioned, the “Churn for Bank Customers”1. dataset. This dataset contains information on ten thousand European banking customers which includes ten predictor variables and the target variable “Exited” which indicates if a customer has ceased to continue the banking relationship. To answer the above questions from the dataset, the predictor variables will act as the inputs towards optimizing the model’s ability to correctly classify the target variable “Exited”. The techniques/steps used to perform this analysis will include but are not limited to: ponder business problem of predicting bank customer churn, retrieve data from bank CRM (database), conduct exploratory data analysis, conduct data preprocessing and preparation, utilize feature selection, a comparison between classification models (Logistic Regression, K-Nearest Neighbors, Decision Tree & Random Forests), incorporate cross-validation, evaluate the models, select the model and report results. The model will be primarily evaluated using primarily a Confusion Matrix and its accompanying outcome quadrants/metrics. The model’s accuracy will also be considered as an important evaluator to optimize for. Finally, R/RStudio and its accompanying packages are the proposed set of tools to intake the dataset, clean the data, perform the data analysis, and ultimately calculate the effectiveness of the model. Tableau may also be used to build enhanced visuals & supporting charts for the final report and concluding presentation.
+
