@@ -1,0 +1,1335 @@
+---
+title: 'CIND 820 Final Code'
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+<center> <h1> How can a business better retain its existing customers? 
+An exploration into banking customer churn. </h1> </center>
+<center>  <h3> Ryan Bursey - Jul 25, 2022</h2> </center>
+<center> <h3> DA0 & 500732132 </h2> </center>
+---
+
+#### 0. Install Packages
+```{r}
+install.packages("corrplot") #For correlation plots
+install.packages("ROSE") #For class balancing
+install.packages("rpart.plot") #For plotting the random forests
+install.packages("caTools") #For Logistic regression
+install.packages("e1071") #For NaiveBayes
+install.packages("class") #For K-Nearest Neighbours
+
+
+library(corrplot)
+library(ROSE)
+library(rpart.plot)
+library(caTools)
+library(e1071)
+library(class)
+
+```
+
+#### 1. Reading the bank dataset
+```{r}
+bank_data <- read.csv("C:\\Users\\rburs\\Documents\\CIND820\\Bank Churn - Raw File.csv", header = T) # Reading the dataset
+```
+
+#### 2. Check the data types of the attributes
+```{r}
+str(bank_data) # Check the data types of the attributes
+```
+
+
+#### 3. Remove Irrelevant Columns
+
+```{r}
+
+bank_data <- bank_data[4:14] # Remove Irrelevant Columns
+chart_data <- bank_data #Create a subset to use for charting
+
+```
+
+#### 4.  Encode Categorical Data
+
+```{r}
+
+bank_data$Geography[bank_data$Geography == "France"] <- 1 #Give France a value of 1
+bank_data$Geography[bank_data$Geography == "Spain"] <- 2 #Give Spain a value of 2
+bank_data$Geography[bank_data$Geography == "Germany"] <- 3 #Give Germany a value of 3
+
+bank_data$Gender[bank_data$Gender == "Female"] <- 1 #Give Female a value of 1
+bank_data$Gender[bank_data$Gender == "Male"] <- 2 #Give Male a value of 2
+
+bank_data$Geography <- as.integer(bank_data$Geography) #Convert to integer data type
+bank_data$Gender <- as.integer(bank_data$Gender) #Convert to integer data type
+
+str(bank_data)
+
+```
+
+#### 5. Check the dataset for any missing values
+```{r}
+which(is.na(bank_data[1])) #Check the columns for any missing values
+which(is.na(bank_data[2])) #Check the columns for any missing values
+which(is.na(bank_data[3])) #Check the columns for any missing values
+which(is.na(bank_data[4])) #Check the columns for any missing values
+which(is.na(bank_data[5])) #Check the columns for any missing values
+which(is.na(bank_data[6])) #Check the columns for any missing values
+which(is.na(bank_data[7])) #Check the columns for any missing values
+which(is.na(bank_data[8])) #Check the columns for any missing values
+which(is.na(bank_data[9])) #Check the columns for any missing values
+which(is.na(bank_data[10])) #Check the columns for any missing values
+which(is.na(bank_data[11])) #Check the columns for any missing values
+
+print("No missing values in this dataset")
+
+```
+#### 6. Summary Measures
+
+
+```{r}
+summary(bank_data) #Show summary measures
+
+```
+
+#### 7. Check the Variable Correlation?
+```{r}
+corr_data <- cbind.data.frame(bank_data[1],bank_data[4:11]) #Create dataset for variable correlation - less categorical variables
+
+colnames(corr_data) <- c("CreditScore",
+                         "Age",
+                         "Tenure",
+                         "Balance",
+                         "NumOfProducts",
+                         "HasCrCard",
+                         "IsActiveMember",
+                         "EstimatedSalary",
+                         "Exited") #Assign names to dataset columns
+
+correlation_calc <- cor(corr_data) #Calculate variable correlation - less categorical variables
+
+corrplot(correlation_calc, type="upper",) #Plot variable correlation
+
+correlation_calc
+
+print("Based on this, there is little correlation between most of the columns. Main items of note are that Number of Products and Balance have a weak to moderate negative correlation and that there is a weak to moderate positive correlation between Age and Exited. Is active member and exited also appears to have a weak negative correlation.")
+
+```
+
+#### 8. Graphing the frequency distribution of the variables
+```{r}
+par(mfrow=c(3,2))
+
+##Distribution of Credit Score
+hist(bank_data$CreditScore, 
+     xlab = "Credit Score", 
+     main = "Bank Customer Distributions")
+
+##Distribution of Age
+hist(bank_data$Age, 
+     xlab = "Age", 
+     main = "Bank Customer Distributions")
+
+##Distribution of Tenure
+hist(bank_data$Tenure, 
+     xlab = "Tenure",
+     main = "Bank Customer Distributions")
+
+##Distribution of Balance
+hist(bank_data$Balance, 
+     xlab = "Balance", 
+     main = "Bank Customer Distributions")
+
+##Distribution of Number of Products
+hist(bank_data$NumOfProducts, 
+     xlab = "Number of Products", 
+     main = "Bank Customer Distributions")
+
+##Distribution of Estimated Salary
+hist(bank_data$EstimatedSalary, 
+     xlab = "Estimated Salary", 
+     main = "Bank Customer Distributions")
+
+print("Credit score appears to have a relatively normal distribution. Age is right skewed with most customers aged 30-40. Tenure has an equal distribution. Balance contains a large portion of customers with a 0 balance but is centered around 125K. Most customers have either 1 or 2 products. Estimated salary has an equal distribution.")
+
+```
+
+#### 9. Count Frequency of other data types
+```{r}
+par(mfrow=c(3,2))
+
+##Barplot of Exited column
+barplot(prop.table(table(chart_data$Exited)),
+        col = rainbow(2),
+        main = "Class Distribution",
+        ylim = c(0,1))
+##Barplot of Geography column
+barplot(prop.table(table(chart_data$Geography)),
+        col = rainbow(3),
+        main = "Geography Distribution",
+        ylim = c(0,1))
+##Barplot of Gender column
+barplot(prop.table(table(chart_data$Gender)),
+        col = rainbow(3),
+        main = "Gender Distribution",
+        ylim = c(0,1))
+##Barplot of HasCrCard column
+barplot(prop.table(table(chart_data$HasCrCard)),
+        col = rainbow(3),
+        main = "Has Credit Card Distribution",
+        ylim = c(0,1))
+
+##Barplot of IsActiveMember column
+barplot(prop.table(table(chart_data$IsActiveMember)),
+        col = rainbow(3),
+        main = "IsActiveMember Distribution",
+        ylim = c(0,1))
+print("We have a class imbalance, as about 80% of our dataset has an exited value of 0. About 50% of customers are from France. This data set has slightly more males than females. About 75% of the data set has a credit card. Active members are about as frequent as non-active members.")
+
+```
+
+
+#### 10. Boxplots of Variables
+
+```{r}
+par(mfrow=c(3,2))
+
+##Boxplot of Credit Score
+boxplot(bank_data$CreditScore, 
+     xlab = "Credit Score", 
+     main = "Bank Customer Boxplots",
+     horizontal = TRUE)
+
+##Boxplot of Age
+boxplot(bank_data$Age, 
+        xlab = "Age", 
+        main = "Bank Customer Boxplots",
+        horizontal = TRUE)
+
+##Boxplot of Tenure
+boxplot(bank_data$Tenure, 
+        xlab = "Tenure", 
+        main = "Bank Customer Boxplots",
+        horizontal = TRUE)
+
+##Boxplot of Balance
+boxplot(bank_data$Balance, 
+        xlab = "Balance", 
+        main = "Bank Customer Boxplots",
+        horizontal = TRUE)
+
+##Boxplot of Number of Products
+boxplot(bank_data$NumOfProducts, 
+        xlab = "Number of Products", 
+        main = "Bank Customer Boxplots", 
+        horizontal = TRUE)
+
+##Boxplot of Estimated Salary
+boxplot(bank_data$EstimatedSalary, 
+        xlab = "Estimated Salary", 
+        main = "Bank Customer Boxplots",
+        horizontal = TRUE)
+
+print("Looking at the Boxplots, we can infer that there are potential outliers in Credit Score, Age and Number of Products")
+```
+
+#### 11. Class balancing vis ROSE Oversampling
+```{r}
+over <- ovun.sample(Exited~., data = bank_data, method = "over",seed = 1, N = (10000+(7963-2037)))$data #Class balancing vis ROSE Oversampling
+table(over$Exited) #Display new class balance
+
+```
+
+#### 12. Class balancing vis ROSE Undersampling
+```{r}
+
+under <- ovun.sample(Exited~., data = bank_data, method = "under",seed = 1, N = (10000-(7963-2037)))$data #Class balancing vis ROSE Undersampling
+table(under$Exited) #Display new class balance
+```
+
+####  13. Class balancing vis ROSE Bothsampling
+```{r}
+
+both <- ovun.sample(Exited~., data = bank_data, method = "both",seed = 1, N = 10000)$data #Class balancing vis ROSE Bothsampling
+table(both$Exited) #Display new class balance
+```
+
+#### 14. Remove Outliers
+```{r}
+
+outliers <- function(x) {
+
+  Q1 <- quantile(x, probs=.25)
+  Q3 <- quantile(x, probs=.75)
+  iqr = Q3-Q1
+
+ upper_limit = Q3 + (iqr*1.5)
+ lower_limit = Q1 - (iqr*1.5)
+
+ x > upper_limit | x < lower_limit
+} #Create outliers function
+
+remove_outliers <- function(df, cols = names(df)) {
+  for (col in cols) {
+    df <- df[!outliers(df[[col]]),]
+  }
+  df
+} #Create remove outliers function
+
+outliers_bank <- remove_outliers(bank_data,c("CreditScore","Age","Tenure","Balance","NumOfProducts","EstimatedSalary")) #Remove outliers in dataset and create new dataset
+outliers_over <- remove_outliers(over,c("CreditScore","Age","Tenure","Balance","NumOfProducts","EstimatedSalary")) #Remove outliers in dataset and create new dataset
+outliers_under <- remove_outliers(under,c("CreditScore","Age","Tenure","Balance","NumOfProducts","EstimatedSalary")) #Remove outliers in dataset and create new dataset
+outliers_both <- remove_outliers(both,c("CreditScore","Age","Tenure","Balance","NumOfProducts","EstimatedSalary")) #Remove outliers in dataset and create new dataset
+
+```
+
+#### 15. Normalize Numeric Attributes
+```{r}
+min_max_norm <- function(x) {(x - min(x)) / (max(x) - min(x))} #Create normalize function
+
+##Normalize bank_data data set
+bank_norm_data1 <- as.data.frame(lapply(bank_data[1],min_max_norm))
+
+bank_norm_data2 <- as.data.frame(lapply(bank_data[4:10],min_max_norm))
+
+bank_norm <- cbind.data.frame(bank_norm_data1,bank_norm_data2,Geography = bank_data$Geography, Gender = bank_data$Gender, Exited = bank_data$Exited)
+
+##Normalize over data set
+over_norm_data1 <- as.data.frame(lapply(over[1],min_max_norm))
+
+over_norm_data2 <- as.data.frame(lapply(over[4:10],min_max_norm))
+
+over_norm <- cbind.data.frame(over_norm_data1,over_norm_data2,Geography = over$Geography, Gender = over$Gender, Exited = over$Exited)
+
+##Normalize under data set
+under_norm_data1 <- as.data.frame(lapply(under[1],min_max_norm))
+
+under_norm_data2 <- as.data.frame(lapply(under[4:10],min_max_norm))
+
+under_norm <- cbind.data.frame(under_norm_data1,under_norm_data2,Geography = under$Geography, Gender = under$Gender, Exited = under$Exited)
+
+##Normalize both data set
+both_norm_data1 <- as.data.frame(lapply(both[1],min_max_norm))
+
+both_norm_data2 <- as.data.frame(lapply(both[4:10],min_max_norm))
+
+both_norm <- cbind.data.frame(both_norm_data1,both_norm_data2,Geography = both$Geography, Gender = both$Gender, Exited = both$Exited)
+
+##Normalize outliers_bank data set
+outliers_norm_data1 <- as.data.frame(lapply(outliers_bank[1],min_max_norm))
+
+outliers_norm_data2 <- as.data.frame(lapply(outliers_bank[4:10],min_max_norm))
+
+outliers_norm <- cbind.data.frame(outliers_norm_data1,outliers_norm_data2,Geography = outliers_bank$Geography, Gender = outliers_bank$Gender, Exited = outliers_bank$Exited)
+
+##Normalize outliers_over data set
+outliers_over_norm_data1 <- as.data.frame(lapply(outliers_over[1],min_max_norm))
+
+outliers_over_norm_data2 <- as.data.frame(lapply(outliers_over[4:10],min_max_norm))
+
+outliers_over_norm <- cbind.data.frame(outliers_over_norm_data1,outliers_over_norm_data2,Geography = outliers_over$Geography, Gender = outliers_over$Gender, Exited = outliers_over$Exited)
+
+##Normalize outliers_under data set
+outliers_under_norm_data1 <- as.data.frame(lapply(outliers_under[1],min_max_norm))
+
+outliers_under_norm_data2 <- as.data.frame(lapply(outliers_under[4:10],min_max_norm))
+
+outliers_under_norm <- cbind.data.frame(outliers_under_norm_data1,outliers_under_norm_data2,Geography = outliers_under$Geography, Gender = outliers_under$Gender, Exited = outliers_under$Exited)
+
+##Normalize outliers_both data set
+outliers_both_norm_data1 <- as.data.frame(lapply(outliers_both[1],min_max_norm))
+
+outliers_both_norm_data2 <- as.data.frame(lapply(outliers_both[4:10],min_max_norm))
+
+outliers_both_norm <- cbind.data.frame(outliers_both_norm_data1,outliers_both_norm_data2,Geography = outliers_both$Geography, Gender = outliers_both$Gender, Exited = outliers_both$Exited)
+
+```
+
+#### 16. Divide the dataset to training and test sets
+```{r}
+
+##data partition for bank_data
+set.seed(222)
+bank_data_ind <- sample(2, nrow(bank_data), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+bank_data_train <- bank_data[bank_data_ind==1,]
+bank_data_test <- bank_data[bank_data_ind==2,]
+
+##data partition for bank_norm
+set.seed(222)
+bank_norm_ind <- sample(2, nrow(bank_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+bank_norm_train <- bank_norm[bank_norm_ind==1,]
+bank_norm_test <- bank_norm[bank_norm_ind==2,]
+
+##data partition for outliers_bank
+set.seed(222)
+outliers_bank_ind <- sample(2, nrow(outliers_bank), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_bank_train <- outliers_bank[outliers_bank_ind==1,]
+outliers_bank_test <- outliers_bank[outliers_bank_ind==2,]
+
+##data partition for outliers_norm
+set.seed(222)
+outliers_norm_ind <- sample(2, nrow(outliers_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_norm_train <- outliers_norm[outliers_norm_ind==1,]
+outliers_norm_test <- outliers_norm[outliers_norm_ind==2,]
+
+##data partition for over
+set.seed(222)
+over_ind <- sample(2, nrow(over), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+over_train <- over[over_ind==1,]
+over_test <- over[over_ind==2,]
+
+##data partition for over_norm
+set.seed(222)
+over_norm_ind <- sample(2, nrow(over_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+over_norm_train <- over_norm[over_norm_ind==1,]
+over_norm_test <- over_norm[over_norm_ind==2,]
+
+##data partition for outliers_over
+set.seed(222)
+outliers_over_ind <- sample(2, nrow(outliers_over), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_over_train <- outliers_over[outliers_over_ind==1,]
+outliers_over_test <- outliers_over[outliers_over_ind==2,]
+
+##data partition for outliers_over_norm
+set.seed(222)
+outliers_over_norm_ind <- sample(2, nrow(outliers_over_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_over_norm_train <- outliers_over_norm[outliers_over_norm_ind==1,]
+outliers_over_norm_test <- outliers_over_norm[outliers_over_norm_ind==2,]
+
+##data partition for under
+set.seed(222)
+under_ind <- sample(2, nrow(under), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+under_train <- under[under_ind==1,]
+under_test <- under[under_ind==2,]
+
+##data partition for under_norm
+set.seed(222)
+under_norm_ind <- sample(2, nrow(under_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+under_norm_train <- under_norm[under_norm_ind==1,]
+under_norm_test <- under_norm[under_norm_ind==2,]
+
+##data partition for outliers_under
+set.seed(222)
+outliers_under_ind <- sample(2, nrow(outliers_under), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_under_train <- outliers_under[outliers_under_ind==1,]
+outliers_under_test <- outliers_under[outliers_under_ind==2,]
+
+##data partition for outliers_under_norm
+set.seed(222)
+outliers_under_norm_ind <- sample(2, nrow(outliers_under_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_under_norm_train <- outliers_under_norm[outliers_under_norm_ind==1,]
+outliers_under_norm_test <- outliers_under_norm[outliers_under_norm_ind==2,]
+
+##data partition for both
+set.seed(222)
+both_ind <- sample(2, nrow(both), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+both_train <- both[both_ind==1,]
+both_test <- both[both_ind==2,]
+
+##data partition for both_norm
+set.seed(222)
+both_norm_ind <- sample(2, nrow(both_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+both_norm_train <- both_norm[both_norm_ind==1,]
+both_norm_test <- both_norm[both_norm_ind==2,]
+
+##data partition for outliers_both
+set.seed(222)
+outliers_both_ind <- sample(2, nrow(outliers_both), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_both_train <- outliers_both[outliers_both_ind==1,]
+outliers_both_test <- outliers_both[outliers_both_ind==2,]
+
+##data partition for outliers_both_norm
+set.seed(222)
+outliers_both_norm_ind <- sample(2, nrow(outliers_both_norm), replace = TRUE, prob = c(0.7, 0.3)) #uses a 70-30 ratio
+outliers_both_norm_train <- outliers_both_norm[outliers_both_norm_ind==1,]
+outliers_both_norm_test <- outliers_both_norm[outliers_both_norm_ind==2,]
+
+```
+
+#### 17A. Random Forest Bank_Data
+```{r}
+fit <- rpart(Exited~., data = bank_data_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, bank_data_test, type = 'class')
+
+table_mat <- table(bank_data_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17B. Random Forest outliers_bank
+```{r}
+fit <- rpart(Exited~., data = outliers_bank_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, outliers_bank_test, type = 'class')
+
+table_mat <- table(outliers_bank_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17C. Random Forest over
+```{r}
+fit <- rpart(Exited~., data = over_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, over_test, type = 'class')
+
+table_mat <- table(over_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17D. Random Forest outliers_over
+```{r}
+fit <- rpart(Exited~., data = outliers_over_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, outliers_over_test, type = 'class')
+
+table_mat <- table(outliers_over_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17E. Random Forest under
+```{r}
+fit <- rpart(Exited~., data = under_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, under_test, type = 'class')
+
+table_mat <- table(under_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17F. Random Forest outliers_under
+```{r}
+fit <- rpart(Exited~., data = outliers_under_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, outliers_under_test, type = 'class')
+
+table_mat <- table(outliers_under_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17G. Random Forest both
+```{r}
+
+fit <- rpart(Exited~., data = both_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, both_test, type = 'class')
+
+table_mat <- table(both_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 17H. Random Forest outliers_both
+```{r}
+
+fit <- rpart(Exited~., data = outliers_both_train , method = 'class')
+
+rpart.plot(fit, extra = 106)
+
+predict_exited <-predict(fit, outliers_both_test, type = 'class')
+
+table_mat <- table(outliers_both_test$Exited, predict_exited)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18A. Logistic Regression Model Bank_Norm
+```{r}
+LM_Bank_Norm <- glm(Exited ~. , data = bank_norm_train , "binomial")
+
+summary(LM_Bank_Norm) #Finding significant variables; drop CreditScore, Tenure, HasCrCard and Estimated Salary
+
+LM_Bank_Norm <- glm(Exited ~ Geography + Gender + Age + Balance + NumOfProducts + IsActiveMember , data = bank_norm_train, "binomial")
+
+summary(LM_Bank_Norm)
+
+predict_bank_norm <- predict(LM_Bank_Norm, bank_norm_test, type = "response")
+
+predict_bank_norm <- ifelse(predict_bank_norm >0.5, 1,0)
+
+table_mat <- table(bank_norm_test$Exited, predict_bank_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18B. Logistic Regression Model outliers_norm
+```{r}
+
+LM_outliers_norm <- glm(Exited ~. , data = outliers_norm_train , "binomial")
+
+summary(LM_outliers_norm) #Finding significant variables; drop CreditScore, Tenure, HasCrCard and Estimated Salary
+
+LM_outliers_norm <- glm(Exited ~ Geography + Gender + Age + Balance + NumOfProducts + IsActiveMember , data = outliers_norm_train, "binomial")
+
+summary(LM_outliers_norm)
+
+predict_outliers_norm <- predict(LM_outliers_norm, outliers_norm_test, type = "response")
+
+predict_outliers_norm <- ifelse(predict_outliers_norm >0.5, 1,0)
+
+table_mat <- table(outliers_norm_test$Exited, predict_outliers_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18C. Logistic Regression Model over_norm
+```{r}
+LM_over_norm <- glm(Exited ~. , data = over_norm_train , "binomial")
+
+summary(LM_over_norm) #Finding significant variables; drop HasCrCard and Estimated Salary
+
+LM_over_norm <- glm(Exited ~ Geography + Gender + Age + Balance + NumOfProducts + IsActiveMember + CreditScore + Tenure , data = over_norm_train, "binomial")
+
+summary(LM_over_norm)
+
+predict_over_norm <- predict(LM_over_norm, over_norm_test, type = "response")
+
+predict_over_norm <- ifelse(predict_over_norm >0.5, 1,0)
+
+table_mat <- table(over_norm_test$Exited, predict_over_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18d. Logistic Regression Model outliers_over_norm
+```{r}
+LM_outliers_over_norm <- glm(Exited ~. , data = outliers_over_norm_train , "binomial")
+
+summary(LM_outliers_over_norm) #Finding significant variables; drop HasCrCard and Estimated Salary
+
+LM_outliers_over_norm <- glm(Exited ~ Geography + Gender + Age + Balance + NumOfProducts + IsActiveMember + CreditScore + Tenure , data = outliers_over_norm_train, "binomial")
+
+summary(LM_outliers_over_norm)
+
+predict_outliers_over_norm <- predict(LM_outliers_over_norm, outliers_over_norm_test, type = "response")
+
+predict_outliers_over_norm <- ifelse(predict_outliers_over_norm >0.5, 1,0)
+
+table_mat <- table(outliers_over_norm_test$Exited, predict_outliers_over_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+
+#### 18e. Logistic Regression Model under_norm
+```{r}
+
+LM_under_norm <- glm(Exited ~. , data = under_norm_train , "binomial")
+
+summary(LM_under_norm) #Finding significant variables; drop Tenure, NumofProducts, HasCrCard and Estimated Salary
+ 
+LM_under_norm <- glm(Exited ~ Geography + Gender + Age + Balance + IsActiveMember + CreditScore , data = under_norm_train, "binomial")
+
+summary(LM_under_norm)
+
+predict_under_norm <- predict(LM_under_norm, under_norm_test, type = "response")
+
+predict_under_norm <- ifelse(predict_under_norm >0.5, 1,0)
+
+table_mat <- table(under_norm_test$Exited, predict_under_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18f. Logistic Regression Model outliers_under_norm
+```{r}
+LM_outliers_under_norm <- glm(Exited ~. , data = outliers_under_norm_train , "binomial")
+
+summary(LM_outliers_under_norm) #Finding significant variables; drop CreditScore, Tenure, HasCrCard and Estimated Salary
+
+LM_outliers_under_norm <- glm(Exited ~ Geography + Gender + Age + Balance + IsActiveMember + NumOfProducts , data = outliers_under_norm_train, "binomial")
+
+summary(LM_outliers_under_norm)
+
+predict_outliers_under_norm <- predict(LM_outliers_under_norm, outliers_under_norm_test, type = "response")
+
+predict_outliers_under_norm <- ifelse(predict_outliers_under_norm >0.5, 1,0)
+
+table_mat <- table(outliers_under_norm_test$Exited, predict_outliers_under_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18g. Logistic Regression Model both_norm
+```{r}
+LM_both_norm <- glm(Exited ~. , data = both_norm_train , "binomial")
+
+summary(LM_both_norm) #Finding significant variables; drop Tenure and Estimated Salary
+
+LM_both_norm <- glm(Exited ~ Geography + Gender + Age + Balance + IsActiveMember + NumOfProducts + CreditScore + HasCrCard , data = both_norm_train, "binomial")
+
+summary(LM_both_norm)
+
+predict_both_norm <- predict(LM_both_norm, both_norm_test, type = "response")
+
+predict_both_norm <- ifelse(predict_both_norm >0.5, 1,0)
+
+table_mat <- table(both_norm_test$Exited, predict_both_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 18h. Logistic Regression Model outliers_both_norm
+```{r}
+LM_outliers_both_norm <- glm(Exited ~. , data = outliers_both_norm_train , "binomial")
+
+summary(LM_outliers_both_norm) #Finding significant variables; drop CreditScore, Tenure and Estimated Salary
+
+LM_outliers_both_norm <- glm(Exited ~ Geography + Gender + Age + Balance + IsActiveMember + NumOfProducts + HasCrCard , data = outliers_both_norm_train, "binomial")
+
+summary(LM_outliers_both_norm)
+
+predict_outliers_both_norm <- predict(LM_outliers_both_norm, outliers_both_norm_test, type = "response")
+
+predict_outliers_both_norm <- ifelse(predict_outliers_both_norm >0.5, 1,0)
+
+table_mat <- table(outliers_both_norm_test$Exited, predict_outliers_both_norm)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19A. Naive Bayes Bank_Norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = bank_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = bank_norm_test) #Predict Model
+
+table_mat <- table(bank_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+#### 19B. Naive Bayes outliers_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = outliers_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = outliers_norm_test) #Predict Model
+
+table_mat <- table(outliers_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19C. Naive Bayes over_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = over_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = over_norm_test) #Predict Model
+
+table_mat <- table(over_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19D. Naive Bayes outliers_over_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = outliers_over_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = outliers_over_norm_test) #Predict Model
+
+table_mat <- table(outliers_over_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19E. Naive Bayes under_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = under_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = under_norm_test) #Predict Model
+
+table_mat <- table(under_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19F. Naive Bayes outliers_under_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = outliers_under_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = outliers_under_norm_test) #Predict Model
+
+table_mat <- table(outliers_under_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19G. Naive Bayes both_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = both_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = both_norm_test) #Predict Model
+
+table_mat <- table(both_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 19H. Naive Bayes outliers_both_norm
+```{r}
+set.seed(222) #Setting Seed
+
+classifier_cl <- naiveBayes(Exited ~ ., data = outliers_both_norm_train) #Run Naive Bayes
+
+y_pred <- predict(classifier_cl, newdata = outliers_both_norm_test) #Predict Model
+
+table_mat <- table(outliers_both_norm_test$Exited, y_pred) #Confusion Matrix
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+
+#### 20A. K-Nearest Neighbors Bank_Norm
+```{r}
+
+bank_data_train <- bank_data_train[1:10]
+bank_data_test <- bank_data_test[1:10]
+
+train_labels <- bank_norm[bank_norm_ind==1,11]
+test_labels <- bank_norm[bank_norm_ind==2,11]
+
+bank_norm_knn <- knn(train = bank_data_train, test = bank_data_test, cl = train_labels, k = 2)
+
+bank_norm_knn <- ifelse(bank_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, bank_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+
+#### 20B. K-Nearest Neighbors outliers_norm
+```{r}
+outliers_bank_train <- outliers_bank_train[1:10]
+outliers_bank_test <- outliers_bank_test[1:10]
+
+train_labels <- outliers_norm[outliers_norm_ind==1,11]
+test_labels <- outliers_norm[outliers_norm_ind==2,11]
+
+outliers_norm_knn <- knn(train = outliers_bank_train, test = outliers_bank_test, cl = train_labels, k = 2)
+
+outliers_norm_knn <- ifelse(outliers_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, outliers_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 20C. K-Nearest Neighbors over_norm
+```{r}
+over_norm_train <- over_norm_train[1:10]
+over_norm_test <- over_norm_test[1:10]
+
+train_labels <- over_norm[over_norm_ind==1,11]
+test_labels <- over_norm[over_norm_ind==2,11]
+
+over_norm_knn <- knn(train = over_norm_train, test = over_norm_test, cl = train_labels, k = 2)
+
+over_norm_knn <- ifelse(over_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, over_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 20D. K-Nearest Neighbors outliers_over_norm
+```{r}
+outliers_over_norm_train <- outliers_over_norm_train[1:10]
+outliers_over_norm_test <- outliers_over_norm_test[1:10]
+
+train_labels <- outliers_over_norm[outliers_over_norm_ind==1,11]
+test_labels <- outliers_over_norm[outliers_over_norm_ind==2,11]
+
+outliers_over_norm_knn <- knn(train = outliers_over_norm_train, test = outliers_over_norm_test, cl = train_labels, k = 2)
+
+outliers_over_norm_knn <- ifelse(outliers_over_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, outliers_over_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 20E. K-Nearest Neighbors under_norm
+```{r}
+under_norm_train <- under_norm_train[1:10]
+under_norm_test <- under_norm_test[1:10]
+
+train_labels <- under_norm[under_norm_ind==1,11]
+test_labels <- under_norm[under_norm_ind==2,11]
+
+under_norm_knn <- knn(train = under_norm_train, test = under_norm_test, cl = train_labels, k = 2)
+
+under_norm_knn <- ifelse(under_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, under_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 20F. K-Nearest Neighbors outliers_under_norm
+```{r}
+outliers_under_norm_train <- outliers_under_norm_train[1:10]
+outliers_under_norm_test <- outliers_under_norm_test[1:10]
+
+train_labels <- outliers_under_norm[outliers_under_norm_ind==1,11]
+test_labels <- outliers_under_norm[outliers_under_norm_ind==2,11]
+
+outliers_under_norm_knn <- knn(train = outliers_under_norm_train, test = outliers_under_norm_test, cl = train_labels, k = 2)
+
+outliers_under_norm_knn <- ifelse(outliers_under_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, outliers_under_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 20G. K-Nearest Neighbors both_norm
+```{r}
+both_norm_train <- both_norm_train[1:10]
+both_norm_test <- both_norm_test[1:10]
+
+train_labels <- both_norm[both_norm_ind==1,11]
+test_labels <- both_norm[both_norm_ind==2,11]
+
+both_norm_knn <- knn(train = both_norm_train, test = both_norm_test, cl = train_labels, k = 2)
+
+both_norm_knn <- ifelse(both_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, both_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
+
+#### 20H. K-Nearest Neighbors outliers_both_norm
+```{r}
+outliers_both_norm_train <- outliers_both_norm_train[1:10]
+outliers_both_norm_test <- outliers_both_norm_test[1:10]
+
+train_labels <- outliers_both_norm[outliers_both_norm_ind==1,11]
+test_labels <- outliers_both_norm[outliers_both_norm_ind==2,11]
+
+outliers_both_norm_knn <- knn(train = outliers_both_norm_train, test = outliers_both_norm_test, cl = train_labels, k = 2)
+
+outliers_both_norm_knn <- ifelse(outliers_both_norm_knn==1,1,0)
+
+table_mat <- table(test_labels, outliers_both_norm_knn)
+table_mat
+
+accuracy <- round((table_mat[1,1] + table_mat[2,2]) / sum(table_mat),3) #calculate accuracy
+missclassification <- round((table_mat[1,2] + table_mat[2,1]) / sum(table_mat),3) #calculate missclassification
+precision <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[1,2]),3) #calculate precision
+recall <- round(table_mat[2,2] / (table_mat[2,2]+table_mat[2,1]),3) #calculate recall
+specificity <- round(table_mat[1,1] / (table_mat[1,1]+table_mat[1,2]),3) #calculate specificity
+f1 <- round((2*precision*recall)/(precision + recall),3) #calculate f1
+print(paste('Accuracy for test', accuracy))
+print(paste('Missclassification for test', missclassification))
+print(paste('Precision for test', precision))
+print(paste('Recall for test', recall))
+print(paste('Specificity for test', specificity))
+print(paste('F1 for test', f1))
+```
